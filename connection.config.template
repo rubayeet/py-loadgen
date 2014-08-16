@@ -1,8 +1,8 @@
 [init]
-connection_string=mongodb://cmcdb:ncDbCMC@ec2-54-90-90-214.compute-1.amazonaws.com/marketing_platform
+connection_string=mongodb://username:password@host:port/db_name
 
 [queries]
-query_1=tasks.find_one()
+query_1=db.table.find_one()
 
 [load]
 concurrent=10

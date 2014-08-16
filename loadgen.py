@@ -23,7 +23,11 @@ def main():
         print "WARNING: No load generation configuration set, will be using defaults"
     if len(config.get('init', 'connection_string', '')) <= 0:
         raise IOError('Connection string (connection_string) not provided')
-    generator.generate_load(configuration.parse_configuration(config))
+    stats_collector = generator.generate_load(configuration.parse_configuration(config))
+    print stats_collector.get_comprehensive_summary()
+    q_dict = stats_collector.get_summary_per_query()
+    for (q, s) in q_dict.iteritems():
+        print "Summary for %s - %s" %(q, s)
 
 if __name__ == "__main__":
     main()
