@@ -9,7 +9,7 @@ class AbstractBaseLoadGeneratorConfiguration(object):
     def __init__(self):
         self._concurrent_requests = 10
         self._runs_per_thread = 10
-        self._explain_each_query = False
+
     @property
     def concurrent_requests(self):
         return int(self._concurrent_requests)
@@ -22,18 +22,13 @@ class AbstractBaseLoadGeneratorConfiguration(object):
     @runs_per_thread.setter
     def runs_per_thread(self, rpt):
         self._runs_per_thread = rpt
-    @property
-    def explain_each_query(self):
-        return self._explain_each_query
-    @explain_each_query.setter
-    def explain_each_query(self, eeq):
-        self._explain_each_query = eeq
 
 class MongoDBConfiguration(AbstractBaseLoadGeneratorConfiguration):
     def __init__(self):
         super(MongoDBConfiguration, self).__init__()
         self._connection_string = ''
         self._queries = dict()
+        self._explain_each_query = False
 
     @property
     def connection_string(self):
@@ -51,6 +46,12 @@ class MongoDBConfiguration(AbstractBaseLoadGeneratorConfiguration):
     def get_random_query(self):
         k = random.choice(self._queries.keys())
         return (k, self._queries.get(k))
+    @property
+    def explain_each_query(self):
+        return self._explain_each_query
+    @explain_each_query.setter
+    def explain_each_query(self, eeq):
+        self._explain_each_query = eeq
     def __str__(self):
         return str("Generate load with %d conncurrent threads and execute one random query at a time for %d times \
 against the %s DB Connection and at the end dump the explanation of the queries - %s"

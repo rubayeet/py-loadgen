@@ -7,4 +7,5 @@ query_1=db.table.find_one()
 [load]
 concurrent=10
 runs_per_thread=10
+# The following configuration is not yet used
 explain_each_query=false
