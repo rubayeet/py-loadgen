@@ -14,6 +14,7 @@ venv
 stat_out
 db\.sqlite3
 *.egg-info
+*.config
 .installed.cfg
 *.pyc
 *.swp
