@@ -6,6 +6,8 @@ from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 from stat import ExecutionStat
 from . import collector
+# For pymongo's string evaluation
+import datetime, bson
 
 job_queue = Queue()
 
@@ -43,7 +45,7 @@ class MongoQueryExecutor(Job):
         return self._query_name
 
     def execute_job(self):
-        exe_c = '%s.%s' % ('self._connection', self._query_string)
+        exe_c = 'self._connection.' + self._query_string
         print 'Executing ', exe_c
         eval(exe_c)
 
