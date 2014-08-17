@@ -1,7 +1,7 @@
 __author__ = 'imyousuf'
 
 import ConfigParser
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import random
 
 class AbstractBaseLoadGeneratorConfiguration(object):
@@ -62,15 +62,24 @@ against the %s DB Connection and at the end dump the explanation of the queries 
                        % (self._concurrent_requests, self._runs_per_thread, self._connection_string, self._explain_each_query))
 
 def parse_configuration(configuration):
-    if isinstance(configuration, ConfigParser.ConfigParser):
+    if isinstance(configuration, ConfigParser.RawConfigParser):
         conf = MongoDBConfiguration()
         conf.connection_string = configuration.get('init', 'connection_string')
         for query_conf in configuration.items('queries'):
             conf.add_query(query_conf[0], query_conf[1])
         if configuration.has_section('load'):
-            conf.concurrent_requests = configuration.get('load', 'concurrent', 10)
-            conf.runs_per_thread = configuration.get('load', 'runs_per_thread', 10)
-            conf.explain_each_query = configuration.get('load', 'explain_each_query') == 'true'
+            if configuration.has_option('load', 'concurrent'):
+                conf.concurrent_requests = configuration.get('load', 'concurrent')
+            else:
+                conf.concurrent_requests = 10
+            if configuration.has_option('load', 'runs_per_thread'):
+                conf.runs_per_thread = configuration.get('load', 'runs_per_thread')
+            else:
+                conf.runs_per_thread = 10
+            if configuration.has_option('load', 'explain_each_query'):
+                conf.explain_each_query = configuration.get('load', 'explain_each_query') == 'true'
+            else:
+                conf.explain_each_query = False
         else:
             conf.concurrent_requests = 10
             conf.runs_per_thread = 10

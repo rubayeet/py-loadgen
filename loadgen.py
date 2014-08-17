@@ -8,7 +8,7 @@ def main():
     Script for generating load to an MongoDB Instance
     """
     print "Generate Load to MongoDB"
-    config = ConfigParser.SafeConfigParser()
+    config = ConfigParser.RawConfigParser()
     config_path = None
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
@@ -21,7 +21,7 @@ def main():
         raise IOError('No use executing the script without queries')
     if not config.has_section('load'):
         print "WARNING: No load generation configuration set, will be using defaults"
-    if len(config.get('init', 'connection_string', '')) <= 0:
+    if not config.has_option('init', 'connection_string') or len(config.get('init', 'connection_string')) <= 0:
         raise IOError('Connection string (connection_string) not provided')
     stats_collector = generator.generate_load(configuration.parse_configuration(config))
     print stats_collector.get_comprehensive_summary()
