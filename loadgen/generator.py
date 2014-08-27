@@ -76,7 +76,6 @@ class Job(object):
         stat.stop()
         self.finalize_job()
         collector.add(stat)
-        print collector.get_comprehensive_summary()
         return stat
 
 class MongoQueryExecutor(Job):
