@@ -5,15 +5,15 @@ from loadgen import configuration, generator
 
 def main():
     """
-    Script for generating load to an MongoDB Instance
+    Script for generating load to systems
     """
-    print "Generate Load to MongoDB"
+    print "Generate Load"
     config = ConfigParser.RawConfigParser()
     config_path = None
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
     else:
-        config_path = 'connection.config'
+        config_path = 'load_generation.config'
     config.read(config_path)
     if not config.has_section('base'):
         raise IOError('"base" section must be defined with "target_type" configuration')

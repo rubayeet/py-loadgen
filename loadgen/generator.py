@@ -4,6 +4,7 @@ from multiprocessing import Pool
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 from stat import ExecutionStat
+from configuration import MongoDBConfiguration, ScriptConfiguration
 from . import collector
 # For pymongo's string evaluation
 import datetime, bson
@@ -117,7 +118,14 @@ def run_job(item):
         pass
     return stat
 
-def generate_load(configuration, job_generator = MongoDBQueryJobGenerator):
+def _get_generator_type(configurator):
+    if isinstance(configurator, ScriptConfiguration):
+        return None
+    elif isinstance(configurator, MongoDBConfiguration):
+        return MongoDBQueryJobGenerator
+
+def generate_load(configuration):
+    job_generator = _get_generator_type(configuration)
     total = configuration.concurrent_requests * configuration.runs_per_thread
     print "Jobs to be generated are ", total
     job_gen = job_generator()
