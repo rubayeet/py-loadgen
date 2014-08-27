@@ -4,7 +4,8 @@ from multiprocessing import Pool
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 from stat import ExecutionStat
-from configuration import MongoDBConfiguration, ScriptConfiguration
+from configuration import MongoDBConfiguration, ScriptConfiguration, ScriptType
+from subprocess import call
 from . import collector
 # For pymongo's string evaluation
 import datetime, bson
@@ -18,12 +19,12 @@ class JobGenerator(object):
     """
     __metaclass__ = ABCMeta
     @abstractmethod
-    def populate_shared_state(self, configuration, manager):
+    def populate_shared_state(self, configuration):
         """
         Populate shared stateful objects to be shared across the processes that will execute the jobs
         :param configuration: The load generation configuration
         :param manager: The manager containing the shared objects
-        :return: Nothing is returned
+        :return: Dictionary of data to share across processes
         """
         raise NotImplementedError
     @abstractmethod
@@ -67,17 +68,26 @@ class Job(object):
 
     @abstractmethod
     def execute_job(self):
+        """
+        Execute the job and collect the statistics for executing the job
+        :return: The execution sub-statistics
+        """
         raise NotImplementedError()
 
     def run(self):
+        result = []
         self.init_job()
         stat = ExecutionStat(self.get_group_name())
+        result.append(stat)
         stat.start()
-        self.execute_job()
+        try:
+            result.extend(self.execute_job())
+        except Exception as e:
+            print e
+            pass
         stat.stop()
         self.finalize_job()
-        collector.add(stat)
-        return stat
+        return result
 
 class MongoQueryExecutor(Job):
     def __init__(self, connection_string, query_name, query_string):
@@ -99,28 +109,65 @@ class MongoQueryExecutor(Job):
         exe_c = 'self._connection.' + self._query_string
         print 'Executing ', exe_c
         eval(exe_c)
+        return []
+
+class ScriptExecutor(Job):
+    def __init__(self, configuration, script_name, script):
+        self._script_name = script_name
+        self._script = script
+        self._command = None
+        if ScriptType.SHELL == configuration.script_type:
+            self._command = "/bin/sh"
+        elif ScriptType.PYTHON == configuration.script_type:
+            self._command = "python"
+        elif ScriptType.RUBY == configuration.script_type:
+            self._command = "ruby"
+        if configuration.executable and len(configuration.executable) > 0:
+            self._command = configuration.executable
+
+    def init_job(self):
+        pass
+
+    def finalize_job(self):
+        pass
+
+    def get_group_name(self):
+        return self._script_name
+
+    def execute_job(self):
+        call([self._command, self._script], shell=False)
+        return []
 
 class MongoDBQueryJobGenerator(JobGenerator):
 
-    def populate_shared_state(self, configuration, manager):
+    def populate_shared_state(self, configuration):
         pass
 
     def next_job(self, configuration):
         (qn, qs) = configuration.get_random_query()
         return MongoQueryExecutor(configuration.connection_string, qn, qs)
 
+class ScriptJobGenerator(JobGenerator):
+
+    def populate_shared_state(self, configuration):
+        pass
+
+    def next_job(self, configuration):
+        (script_name, script) = configuration.get_random_script()
+        return ScriptExecutor(configuration, script_name, script)
+
 def run_job(item):
-    stat = None
+    stats = []
     try:
-        stat = item.run()
+        stats.extend(item.run())
     except Exception as e:
         print e
         pass
-    return stat
+    return stats
 
 def _get_generator_type(configurator):
     if isinstance(configurator, ScriptConfiguration):
-        return None
+        return ScriptJobGenerator
     elif isinstance(configurator, MongoDBConfiguration):
         return MongoDBQueryJobGenerator
 
@@ -129,7 +176,7 @@ def generate_load(configuration):
     total = configuration.concurrent_requests * configuration.runs_per_thread
     print "Jobs to be generated are ", total
     job_gen = job_generator()
-    job_gen.populate_shared_state(configuration, None)
+    job_gen.populate_shared_state(configuration)
     for j in range(total):
         job_queue.append(job_gen.next_job(configuration))
     print "Create a pool"
@@ -137,7 +184,8 @@ def generate_load(configuration):
     pool = Pool(processes=configuration.concurrent_requests)
     stats = pool.map(run_job, job_queue)
     pool.close()
-    for each_stat in stats:
-        collector.add(each_stat)
+    for each_job_stat in stats:
+        for each_stat in each_job_stat:
+            collector.add(each_stat)
     pool.join()
     return collector

@@ -35,7 +35,14 @@ class ScriptConfiguration(AbstractBaseLoadGeneratorConfiguration):
         super(ScriptConfiguration, self).__init__()
         self._scripts = dict()
         self._type = ScriptType.SHELL
+        self._executable = ""
 
+    @property
+    def executable(self):
+        return self._executable
+    @executable.setter
+    def executable(self, executable):
+        self._executable = executable
     @property
     def script_type(self):
         return self._type
@@ -49,6 +56,9 @@ class ScriptConfiguration(AbstractBaseLoadGeneratorConfiguration):
         self._scripts[group_name] = script_path
     def remove_script(self, group_name):
         del self._scripts[group_name]
+    def get_random_script(self):
+        k = random.choice(self._scripts.keys())
+        return (k, self._scripts.get(k))
 
 class MongoDBConfiguration(AbstractBaseLoadGeneratorConfiguration):
     def __init__(self):
@@ -89,6 +99,8 @@ against the %s DB Connection and at the end dump the explanation of the queries 
                        % (self._concurrent_requests, self._runs_per_thread, self._connection_string, self._explain_each_query))
 
 def _populate_script_details(conf, configuration):
+    if configuration.has_option('base', 'executable'):
+        conf.executable = configuration.get('base', 'executable')
     for script_conf in configuration.items('scripts'):
         conf.put_script(script_conf[0], script_conf[1])
 
