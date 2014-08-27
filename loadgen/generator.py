@@ -1,7 +1,6 @@
 __author__ = 'imyousuf'
 
-from threading import Thread
-from Queue import Queue
+from multiprocessing import Pool
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 from stat import ExecutionStat
@@ -9,10 +8,19 @@ from . import collector
 # For pymongo's string evaluation
 import datetime, bson
 
-job_queue = Queue()
+job_queue = []
 
 class JobGenerator(object):
     __metaclass__ = ABCMeta
+    @abstractmethod
+    def populate_shared_state(self, configuration, manager):
+        """
+        Populate shared stateful objects to be shared across the processes that will execute the jobs
+        :param configuration: The load generation configuration
+        :param manager: The manager containing the shared objects
+        :return: Nothing is returned
+        """
+        raise NotImplementedError
     @abstractmethod
     def next_job(self, configuration):
         raise NotImplementedError()
@@ -25,21 +33,49 @@ class Job(object):
         raise NotImplementedError()
 
     @abstractmethod
+    def init_job(self):
+        """
+        Initialize the job and time taken for it should not be reflected upon the job execution
+        :return: Nothing
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def finalize_job(self):
+        """
+        Finalize the job to release any resource that you want to for the resource
+        :return: Nothing
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
     def execute_job(self):
         raise NotImplementedError()
 
     def run(self):
+        self.init_job()
         stat = ExecutionStat(self.get_group_name())
         stat.start()
         self.execute_job()
         stat.stop()
+        self.finalize_job()
+        print stat
         collector.add(stat)
+        print collector.get_comprehensive_summary()
+        return stat
 
 class MongoQueryExecutor(Job):
-    def __init__(self, connection, query_name, query_string):
-        self._connection = connection
+    def __init__(self, connection_string, query_name, query_string):
+        self._connection_string = connection_string
         self._query_name = query_name
         self._query_string = query_string
+        self._connection = None
+
+    def init_job(self):
+        self._connection = MongoClient(self._connection_string)
+
+    def finalize_job(self):
+        self._connection.close()
 
     def get_group_name(self):
         return self._query_name
@@ -51,31 +87,33 @@ class MongoQueryExecutor(Job):
 
 class MongoDBQueryJobGenerator(JobGenerator):
 
-    def __init__(self):
-        self._connection = None
+    def populate_shared_state(self, configuration, manager):
+        pass
 
     def next_job(self, configuration):
-        if not self._connection:
-            print 'Connecting to ', configuration.connection_string
-            self._connection = MongoClient(configuration.connection_string)
         (qn, qs) = configuration.get_random_query()
-        return MongoQueryExecutor(self._connection, qn, qs)
+        return MongoQueryExecutor(configuration.connection_string, qn, qs)
 
-def worker():
-    while True:
-        item = job_queue.get()
-        item.run()
-        job_queue.task_done()
+def run_job(item):
+    try:
+        stat = item.run()
+    except Exception as e:
+        print e
+    return stat
 
 def generate_load(configuration, job_generator = MongoDBQueryJobGenerator):
-    for i in range (configuration.concurrent_requests):
-        t = Thread(target=worker)
-        t.daemon = True
-        t.start()
     total = configuration.concurrent_requests * configuration.runs_per_thread
     print "Jobs to be generated are ", total
     job_gen = job_generator()
+    job_gen.populate_shared_state(configuration, None)
     for j in range(total):
-        job_queue.put(job_gen.next_job(configuration))
-    job_queue.join()
+        job_queue.append(job_gen.next_job(configuration))
+    print "Create a pool"
+    print "Pending jobs ", len(job_queue)
+    pool = Pool(processes=configuration.concurrent_requests)
+    stats = pool.map(run_job, job_queue)
+    pool.close()
+    for each_stat in stats:
+        collector.add(each_stat)
+    pool.join()
     return collector
