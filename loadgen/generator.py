@@ -11,6 +11,10 @@ import datetime, bson
 job_queue = []
 
 class JobGenerator(object):
+    """
+    An API allowing the generator to use in order to generate jobs so that they can be queued and executed
+    parallelly.
+    """
     __metaclass__ = ABCMeta
     @abstractmethod
     def populate_shared_state(self, configuration, manager):
@@ -23,13 +27,25 @@ class JobGenerator(object):
         raise NotImplementedError
     @abstractmethod
     def next_job(self, configuration):
+        """
+        Retrieve the next job from this generator so that we can queue and parallelly execute them.
+        :param configuration: The configuration to use to generate the next job to queue
+        :return: An instance of the job to queue
+        """
         raise NotImplementedError()
 
 class Job(object):
+    """
+    An unit of work that we want to measure when we execute it.
+    """
     __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_group_name(self):
+        """
+        Retrieve group name being executed in the job so that we can later group the execution statistics by.
+        :return: The execution group name
+        """
         raise NotImplementedError()
 
     @abstractmethod
@@ -95,10 +111,12 @@ class MongoDBQueryJobGenerator(JobGenerator):
         return MongoQueryExecutor(configuration.connection_string, qn, qs)
 
 def run_job(item):
+    stat = None
     try:
         stat = item.run()
     except Exception as e:
         print e
+        pass
     return stat
 
 def generate_load(configuration, job_generator = MongoDBQueryJobGenerator):
