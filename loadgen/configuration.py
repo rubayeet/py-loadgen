@@ -88,11 +88,9 @@ against the %s DB Connection and at the end dump the explanation of the queries 
 against the %s DB Connection and at the end dump the explanation of the queries - %s"
                        % (self._concurrent_requests, self._runs_per_thread, self._connection_string, self._explain_each_query))
 
-
-def populate_script_details(conf, configuration):
+def _populate_script_details(conf, configuration):
     for script_conf in configuration.items('scripts'):
         conf.put_script(script_conf[0], script_conf[1])
-
 
 def parse_configuration(configuration):
     if isinstance(configuration, ConfigParser.RawConfigParser):
@@ -111,15 +109,15 @@ def parse_configuration(configuration):
                 conf.add_query(query_conf[0], query_conf[1])
         elif target_type == 'shell_script':
             conf = ScriptConfiguration()
-            populate_script_details(conf, configuration)
+            _populate_script_details(conf, configuration)
         elif target_type == 'python_script':
             conf = ScriptConfiguration()
             conf.script_type = ScriptType.PYTHON
-            populate_script_details(conf, configuration)
+            _populate_script_details(conf, configuration)
         elif target_type == 'ruby_script':
             conf = ScriptConfiguration()
             conf.script_type = ScriptType.RUBY
-            populate_script_details(conf, configuration)
+            _populate_script_details(conf, configuration)
         if configuration.has_section('load'):
             if configuration.has_option('load', 'concurrent'):
                 conf.concurrent_requests = configuration.get('load', 'concurrent')
