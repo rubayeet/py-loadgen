@@ -75,7 +75,6 @@ class Job(object):
         self.execute_job()
         stat.stop()
         self.finalize_job()
-        print stat
         collector.add(stat)
         print collector.get_comprehensive_summary()
         return stat

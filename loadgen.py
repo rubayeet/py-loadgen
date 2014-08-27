@@ -15,14 +15,12 @@ def main():
     else:
         config_path = 'connection.config'
     config.read(config_path)
-    if not config.has_section('init'):
-        raise IOError('"init" section must be defined with "connection_string" configuration')
-    if not config.has_section('queries'):
-        raise IOError('No use executing the script without queries')
+    if not config.has_section('base'):
+        raise IOError('"base" section must be defined with "target_type" configuration')
     if not config.has_section('load'):
         print "WARNING: No load generation configuration set, will be using defaults"
-    if not config.has_option('init', 'connection_string') or len(config.get('init', 'connection_string')) <= 0:
-        raise IOError('Connection string (connection_string) not provided')
+    if not config.has_option('base', 'target_type') or len(config.get('base', 'target_type')) <= 0:
+        raise IOError('Load target type (target_type) not provided')
     stats_collector = generator.generate_load(configuration.parse_configuration(config))
     print stats_collector.get_comprehensive_summary()
     q_dict = stats_collector.get_summary_per_query()

@@ -23,6 +23,33 @@ class AbstractBaseLoadGeneratorConfiguration(object):
     def runs_per_thread(self, rpt):
         self._runs_per_thread = rpt
 
+class Enum(set):
+    def __getattr__(self, name):
+        if name in self:
+            return name
+        raise AttributeError
+ScriptType = Enum(['SHELL', 'PYTHON', 'RUBY'])
+
+class ScriptConfiguration(AbstractBaseLoadGeneratorConfiguration):
+    def __init__(self):
+        super(ScriptConfiguration, self).__init__()
+        self._scripts = dict()
+        self._type = ScriptType.SHELL
+
+    @property
+    def script_type(self):
+        return self._type
+    @script_type.setter
+    def script_type(self,script_type):
+        self._type = script_type
+    @property
+    def scripts(self):
+        return self._scripts
+    def put_script(self, group_name, script_path):
+        self._scripts[group_name] = script_path
+    def remove_script(self, group_name):
+        del self._scripts[group_name]
+
 class MongoDBConfiguration(AbstractBaseLoadGeneratorConfiguration):
     def __init__(self):
         super(MongoDBConfiguration, self).__init__()
@@ -61,12 +88,38 @@ against the %s DB Connection and at the end dump the explanation of the queries 
 against the %s DB Connection and at the end dump the explanation of the queries - %s"
                        % (self._concurrent_requests, self._runs_per_thread, self._connection_string, self._explain_each_query))
 
+
+def populate_script_details(conf, configuration):
+    for script_conf in configuration.items('scripts'):
+        conf.put_script(script_conf[0], script_conf[1])
+
+
 def parse_configuration(configuration):
     if isinstance(configuration, ConfigParser.RawConfigParser):
-        conf = MongoDBConfiguration()
-        conf.connection_string = configuration.get('init', 'connection_string')
-        for query_conf in configuration.items('queries'):
-            conf.add_query(query_conf[0], query_conf[1])
+        target_type = configuration.get('base', 'target_type')
+        conf = None
+        if target_type == 'mongo':
+            conf = MongoDBConfiguration()
+            if not configuration.has_section('queries'):
+                raise IOError('No use executing the script without queries')
+            conf.connection_string = configuration.get('mongo', 'connection_string')
+            if configuration.has_option('mongo', 'explain_each_query'):
+                conf.explain_each_query = configuration.get('mongo', 'explain_each_query') == 'true'
+            else:
+                conf.explain_each_query = False
+            for query_conf in configuration.items('queries'):
+                conf.add_query(query_conf[0], query_conf[1])
+        elif target_type == 'shell_script':
+            conf = ScriptConfiguration()
+            populate_script_details(conf, configuration)
+        elif target_type == 'python_script':
+            conf = ScriptConfiguration()
+            conf.script_type = ScriptType.PYTHON
+            populate_script_details(conf, configuration)
+        elif target_type == 'ruby_script':
+            conf = ScriptConfiguration()
+            conf.script_type = ScriptType.RUBY
+            populate_script_details(conf, configuration)
         if configuration.has_section('load'):
             if configuration.has_option('load', 'concurrent'):
                 conf.concurrent_requests = configuration.get('load', 'concurrent')
@@ -76,13 +129,8 @@ def parse_configuration(configuration):
                 conf.runs_per_thread = configuration.get('load', 'runs_per_thread')
             else:
                 conf.runs_per_thread = 10
-            if configuration.has_option('load', 'explain_each_query'):
-                conf.explain_each_query = configuration.get('load', 'explain_each_query') == 'true'
-            else:
-                conf.explain_each_query = False
         else:
             conf.concurrent_requests = 10
             conf.runs_per_thread = 10
-            conf.explain_each_query = False
         return conf
     return None
