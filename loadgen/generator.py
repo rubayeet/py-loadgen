@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 from stat import ExecutionStat
 from configuration import MongoDBConfiguration, ScriptConfiguration, ScriptType
-from subprocess import call
+import subprocess
 from . import collector
 # For pymongo's string evaluation
 import datetime, bson
@@ -135,8 +135,19 @@ class ScriptExecutor(Job):
         return self._script_name
 
     def execute_job(self):
-        call([self._command, self._script], shell=False)
-        return []
+        result = []
+        exec_proc = subprocess.Popen([self._command, self._script], shell=False, stdout=subprocess.PIPE)
+        while True:
+            line = exec_proc.stdout.readline()
+            if line != '':
+                # test for stat
+                if line.startswith('==>'):
+                    metrics = line.split(' ')
+                    stat = ExecutionStat('%s_%s'%(self.get_group_name(), metrics[1]), metrics[2], metrics[3])
+                    result.append(stat)
+            else:
+                break
+        return result
 
 class MongoDBQueryJobGenerator(JobGenerator):
 
