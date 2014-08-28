@@ -28,7 +28,7 @@ class Enum(set):
         if name in self:
             return name
         raise AttributeError
-ScriptType = Enum(['SHELL', 'PYTHON', 'RUBY'])
+ScriptType = Enum(['SHELL', 'PYTHON', 'RUBY', 'BASH'])
 
 class ScriptConfiguration(AbstractBaseLoadGeneratorConfiguration):
     def __init__(self):
@@ -121,6 +121,10 @@ def parse_configuration(configuration):
                 conf.add_query(query_conf[0], query_conf[1])
         elif target_type == 'shell_script':
             conf = ScriptConfiguration()
+            _populate_script_details(conf, configuration)
+        elif target_type == 'bash_script':
+            conf = ScriptConfiguration()
+            conf.script_type = ScriptType.BASH
             _populate_script_details(conf, configuration)
         elif target_type == 'python_script':
             conf = ScriptConfiguration()
