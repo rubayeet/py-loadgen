@@ -1,11 +1,36 @@
-[init]
+# A mandatory section for configuring the nature of the load test
+[base]
+# Valid values are -
+#  - mongo -- For interfacing and performing queries directly on MongoDB
+#  - shell_script -- Shell script to execute scripts and collect metrics from there
+#  - bash_script -- Same as shell script just that it uses bash scripts instead
+#  - python_script -- Same as shell script with python
+#  - ruby_script -- Same as shell script with ruby
+# Scripts that is used to interface with the platform intended to load test can
+# a special output format to expose individual interaction metrics, the format is -
+# ==> op_name start_time_ms end_time_ms
+# This operations would be prefixed with the script group name
+target_type=mongo
+
+# Section to define scripts to load test; scripts are chosen at random from the specified
+# scripts. This section is valid for target types of *_script
+[scripts]
+# Specify each script with name and specify the script with the arguments. It
+# should be noted that arguments should be URL quoted so that special character
+# are passed as expected to program; use Python's urllib.quote to URL quote the
+# arguments; e.g., 'argument%202' will be passed as 'argument 2' to the script.
+calendar_query=script.sh argument1 argument%202
+
+# 'mongo' and 'queries' sections are for direct MongoDB Load generation
+[mongo]
 connection_string=mongodb://username:password@host:port/db_name
+# The following configuration is not yet used
+explain_each_query=false
 
 [queries]
 query_1=db.table.find_one()
 
+# Load section is applicable for all type of loads
 [load]
 concurrent=10
 runs_per_thread=10
-# The following configuration is not yet used
-explain_each_query=false
