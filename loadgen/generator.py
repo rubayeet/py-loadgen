@@ -11,8 +11,6 @@ from . import collector
 # For pymongo's string evaluation
 import datetime, bson
 
-job_queue = []
-
 class JobGenerator(object):
     """
     An API allowing the generator to use in order to generate jobs so that they can be queued and executed
@@ -36,6 +34,26 @@ class JobGenerator(object):
         :return: An instance of the job to queue
         """
         raise NotImplementedError()
+
+class JobGeneratingIterator(object):
+    def __init__(self, jobGenerator, configuration, max):
+        if max <= 0:
+            raise IOError("Must be allowed to generate at least 1 job")
+        self._job_generator = jobGenerator
+        self._configuration = configuration
+        self._max = int(max)
+        self._counter = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._counter < self._max:
+            job = self._job_generator.next_job(self._configuration)
+            self._counter = self._counter + 1
+            return job
+        else:
+            raise StopIteration
 
 class Job(object):
     """
@@ -194,12 +212,10 @@ def generate_load(configuration):
     print "Jobs to be generated are ", total
     job_gen = job_generator()
     job_gen.populate_shared_state(configuration)
-    for j in range(total):
-        job_queue.append(job_gen.next_job(configuration))
     print "Create a pool"
-    print "Pending jobs ", len(job_queue)
+    print "Pending jobs ", total
     pool = Pool(processes=configuration.concurrent_requests)
-    stats = pool.map(run_job, job_queue)
+    stats = pool.map(run_job, JobGeneratingIterator(job_gen, configuration, total))
     pool.close()
     for each_job_stat in stats:
         for each_stat in each_job_stat:
