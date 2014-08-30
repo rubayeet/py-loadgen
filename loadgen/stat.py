@@ -1,5 +1,6 @@
 __author__ = 'imyousuf'
 
+import math
 import datetime
 
 __BASE = datetime.datetime.fromtimestamp(0)
@@ -66,7 +67,7 @@ class ExecutionResult(object):
     def min(self, min):
         self._min = min
     def __str__(self):
-        return "min/max/avg/std-dev. - %s/%s/%s/%s" % (self._min, self._max, self._average, self._std_deviation)
+        return "min/max/avg/std-dev/90percentile. - %s/%s/%s/%s/%s" % (self._min, self._max, self._average, self._std_deviation, self._percentile_90)
 
 
 class StatisticsCollector(object):
@@ -115,4 +116,17 @@ def _compute_result(stats):
         difference_2_sum += ((duration - result.average) ** 2)
     average_difference_2 = difference_2_sum/len(stats)
     result.std_deviation = average_difference_2 ** 0.5
+    result._percentile_90 = percentile(sorted([stat.duration for stat in stats]), 0.9)
     return result
+    
+def percentile(N, percent):
+    if not N:
+        return None
+    k = (len(N)-1) * percent
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        returnN[int(k)]
+    d0 = N[int(f)] * (c-k)
+    d1 = N[int(c)] * (k-f)
+    return d0+d1
